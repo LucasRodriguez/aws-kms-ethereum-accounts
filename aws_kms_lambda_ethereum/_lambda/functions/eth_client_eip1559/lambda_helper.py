@@ -74,7 +74,7 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
     return response
 
-
+// We have to change this
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
     Key DEFINITIONS ::= BEGIN
@@ -150,13 +150,13 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chainid) -> dict:
     return {}
 
 
-def get_tx_params(dst_address: str, amount: int, nonce: int,
+def get_tx_params(dst_address: str, amount: int, nonce: int, data: str,
                   chainid: int, type: int, max_fee_per_gas: int, max_priority_fee_per_gas: int) -> dict:
     transaction = {
         'nonce': nonce,
         'to': dst_address,
         'value': w3.toWei(amount, 'ether'),
-        'data': '0x00',
+        'data': data,
         'gas': 160000,
         'maxFeePerGas': max_fee_per_gas,
         'maxPriorityFeePerGas': max_priority_fee_per_gas,

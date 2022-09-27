@@ -5,7 +5,6 @@ import logging
 import os
 
 from lambda_helper import (assemble_tx,
-                           get_params,
                            get_tx_params,
                            calc_eth_address,
                            get_kms_public_key)
@@ -28,7 +27,7 @@ def lambda_handler(event, context):
 
     operation = event.get('operation')
     if not operation:
-        raise ValueError('operation needs to be specified in request and needs to be eigher "status" or "send"')
+        raise ValueError('operation needs to be specified in request and needs to be either "status" or "send"')
 
     # {"operation": "status"}
     if operation == 'status':
@@ -44,7 +43,7 @@ def lambda_handler(event, context):
     #  "dst_address": "0x...",
     #  "nonce": 0}
     elif operation == 'sign':
-
+        
         if not (event.get('dst_address') and event.get('amount', -1) >= 0 and event.get('nonce', -1) >= 0):
             return {'operation': 'sign',
                     'error': 'missing parameter - sign requires amount, dst_address and nonce to be specified'}
@@ -58,7 +57,11 @@ def lambda_handler(event, context):
         # get amount from send request
         amount = event.get('amount')
 
+        # nonce from send request
         nonce = event.get('nonce')
+
+        # data from send request
+        data = event.get('data')
 
         # optional params
         chainid = event.get('chainid')
@@ -75,6 +78,7 @@ def lambda_handler(event, context):
         # collect rawd parameters for Ethereum transaction
         tx_params = get_tx_params(dst_address=dst_address,
                                   amount=amount,
+                                  data=data,
                                   nonce=nonce,
                                   chainid=chainid,
                                   type=type,
