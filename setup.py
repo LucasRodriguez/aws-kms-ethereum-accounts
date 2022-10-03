@@ -3,7 +3,7 @@
 
 import setuptools
 
-CDK_VERSION = "1.90.0"
+CDK_VERSION = "1.175.0"
 
 with open("README.md") as fp:
     long_description = fp.read()
@@ -13,11 +13,11 @@ setuptools.setup(
     name="aws_kms_lambda_ethereum",
     version="0.0.1",
 
-    description="An empty CDK Python app",
+    description="A key management service to protect user accounts",
     long_description=long_description,
     long_description_content_type="text/markdown",
 
-    author="author",
+    author="LucasRodriguez",
 
     package_dir={"": "aws_kms_lambda_ethereum"},
     packages=setuptools.find_packages(where="aws_kms_lambda_ethereum"),

@@ -59,17 +59,6 @@ class AwsKmsLambdaEthereumStack(core.Stack):
         cfn_cmk.key_spec = 'ECC_SECG_P256K1'
         cfn_cmk.key_usage = 'SIGN_VERIFY'
 
-        eth_client = EthLambda(self, "eth-kms-client",
-                               dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client",
-                               env={"LOG_LEVEL": "DEBUG",
-                                    "KMS_KEY_ID": cmk.key_id,
-                                    "ETH_NETWORK": eth_network
-                                    }
-                               )
-
-        cmk.grant(eth_client.lf, 'kms:GetPublicKey')
-        cmk.grant(eth_client.lf, 'kms:Sign')
-
         eth_client_eip1559 = EthLambda(self, "KmsClientEIP1559",
                                        dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client_eip1559",
                                        env={"LOG_LEVEL": "DEBUG",

@@ -15,7 +15,8 @@ from web3.auto import w3
 session = boto3.session.Session()
 
 handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(lineno)d - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(lineno)d - %(message)s')
 handler.setFormatter(formatter)
 
 _logger = logging.getLogger('app')
@@ -23,7 +24,8 @@ _logger.setLevel(os.getenv('LOGGING_LEVEL', 'WARNING'))
 _logger.addHandler(handler)
 
 # max value on curve / https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
-SECP256_K1_N = int("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
+SECP256_K1_N = int(
+    "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
 
 
 class EthKmsParams:
@@ -39,6 +41,7 @@ class EthKmsParams:
 def get_params() -> EthKmsParams:
     for param in ['KMS_KEY_ID', 'ETH_NETWORK']:
         value = os.getenv(param)
+
 
         if not value:
             if param in ['ETH_NETWORK']:
@@ -74,7 +77,6 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
     return response
 
-// We have to change this
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
     Key DEFINITIONS ::= BEGIN
