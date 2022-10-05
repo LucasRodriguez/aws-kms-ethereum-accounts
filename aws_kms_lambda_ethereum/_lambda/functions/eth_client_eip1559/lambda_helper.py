@@ -28,33 +28,6 @@ SECP256_K1_N = int(
     "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
 
 
-class EthKmsParams:
-
-    def __init__(self, kms_key_id: str, eth_network: str):
-        self._kms_key_id = kms_key_id
-        self._eth_network = eth_network
-
-    def get_kms_key_id(self) -> str:
-        return self._kms_key_id
-
-
-def get_params() -> EthKmsParams:
-    for param in ['KMS_KEY_ID', 'ETH_NETWORK']:
-        value = os.getenv(param)
-
-
-        if not value:
-            if param in ['ETH_NETWORK']:
-                continue
-            else:
-                raise ValueError('missing value for parameter: {}'.format(param))
-
-    return EthKmsParams(
-        kms_key_id=os.getenv('KMS_KEY_ID'),
-        eth_network=os.getenv('ETH_NETWORK')
-    )
-
-
 def get_kms_public_key(key_id: str) -> bytes:
     client = boto3.client('kms')
 
@@ -109,7 +82,7 @@ def calc_eth_address(pub_key) -> str:
     return eth_checksum_addr
 
 
-def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
+def find_eth_signature(key_id: str, plaintext: bytes) -> dict:
     SIGNATURE_ASN = '''
     Signature DEFINITIONS ::= BEGIN
 
@@ -121,7 +94,7 @@ def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
     '''
     signature_schema = asn1tools.compile_string(SIGNATURE_ASN)
 
-    signature = sign_kms(params.get_kms_key_id(), plaintext)
+    signature = sign_kms(key_id, plaintext)
 
     # https://tools.ietf.org/html/rfc3279#section-2.2.3
     signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
@@ -169,11 +142,11 @@ def get_tx_params(dst_address: str, amount: int, nonce: int, data: str,
     return transaction
 
 
-def assemble_tx(tx_params: dict, params: EthKmsParams, eth_checksum_addr: str, chainid: int) -> (bytes, bytes):
+def assemble_tx(tx_params: dict, key_id: str, eth_checksum_addr: str, chainid: int) -> (bytes, bytes):
     tx_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=tx_params)
     tx_hash = tx_unsigned.hash()
 
-    tx_sig = find_eth_signature(params=params,
+    tx_sig = find_eth_signature(params=key_id,
                                 plaintext=tx_hash)
 
     tx_eth_recovered_pub_addr = get_recovery_id(msg_hash=tx_hash,

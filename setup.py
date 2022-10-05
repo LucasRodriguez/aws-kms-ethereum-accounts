@@ -27,7 +27,6 @@ setuptools.setup(
         "aws-cdk.aws-lambda=={}".format(CDK_VERSION),
         "aws-cdk.aws-kms=={}".format(CDK_VERSION),
         "aws-cdk.aws-iam=={}".format(CDK_VERSION)
-
     ],
 
     python_requires=">=3.6",
