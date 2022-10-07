@@ -15,7 +15,8 @@ from web3.auto import w3
 session = boto3.session.Session()
 
 handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(lineno)d - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(lineno)d - %(message)s')
 handler.setFormatter(formatter)
 
 _logger = logging.getLogger('app')
@@ -23,34 +24,8 @@ _logger.setLevel(os.getenv('LOGGING_LEVEL', 'WARNING'))
 _logger.addHandler(handler)
 
 # max value on curve / https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
-SECP256_K1_N = int("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
-
-
-class EthKmsParams:
-
-    def __init__(self, kms_key_id: str, eth_network: str):
-        self._kms_key_id = kms_key_id
-        self._eth_network = eth_network
-
-    def get_kms_key_id(self) -> str:
-        return self._kms_key_id
-
-
-def get_params() -> EthKmsParams:
-    for param in ['KMS_KEY_ID', 'ETH_NETWORK']:
-        value = os.getenv(param)
-
-        if not value:
-            if param in ['ETH_NETWORK']:
-                continue
-            else:
-                raise ValueError('missing value for parameter: {}'.format(param))
-
-    return EthKmsParams(
-        kms_key_id=os.getenv('KMS_KEY_ID'),
-        eth_network=os.getenv('ETH_NETWORK')
-    )
-
+SECP256_K1_N = int(
+    "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
 
 def get_kms_public_key(key_id: str) -> bytes:
     client = boto3.client('kms')
@@ -60,7 +35,6 @@ def get_kms_public_key(key_id: str) -> bytes:
     )
 
     return response['PublicKey']
-
 
 def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     client = boto3.client('kms')
@@ -74,6 +48,16 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
     return response
 
+
+def get_key() -> dict:
+    client = boto3.client('kms')
+
+    response = client.create_key(
+        KeyUsage='SIGN_VERIFY',
+        CustomerMasterKeySpec='ECC_SECG_P256K1'
+    )
+    res = response.get('KeyMetadata', {}).get('KeyId', None)
+    return res
 
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
@@ -106,8 +90,7 @@ def calc_eth_address(pub_key) -> str:
 
     return eth_checksum_addr
 
-
-def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
+def find_eth_signature(key_id: str, plaintext: bytes) -> dict:
     SIGNATURE_ASN = '''
     Signature DEFINITIONS ::= BEGIN
 
@@ -119,10 +102,11 @@ def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
     '''
     signature_schema = asn1tools.compile_string(SIGNATURE_ASN)
 
-    signature = sign_kms(params.get_kms_key_id(), plaintext)
+    signature = sign_kms(key_id, plaintext)
 
     # https://tools.ietf.org/html/rfc3279#section-2.2.3
-    signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
+    signature_decoded = signature_schema.decode(
+        'Ecdsa-Sig-Value', signature['Signature'])
     s = signature_decoded['s']
     r = signature_decoded['r']
 
@@ -133,7 +117,6 @@ def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
 
     return {'r': r, 's': s}
 
-
 def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chainid) -> dict:
     # https://eips.ethereum.org/EIPS/eip-155
     # calculate v according to EIP155 based on chainid parameter
@@ -142,21 +125,21 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chainid) -> dict:
     v_range = [v_lower, v_lower + 1]
 
     for v in v_range:
-        recovered_addr = Account.recoverHash(message_hash=msg_hash, vrs=(v, r, s))
+        recovered_addr = Account.recoverHash(
+            message_hash=msg_hash, vrs=(v, r, s))
 
         if recovered_addr == eth_checksum_addr:
             return {"recovered_addr": recovered_addr, "y_parity": v - v_lower}
 
     return {}
 
-
-def get_tx_params(dst_address: str, amount: int, nonce: int,
+def get_tx_params(dst_address: str, amount: int, nonce: int, data: str,
                   chainid: int, type: int, max_fee_per_gas: int, max_priority_fee_per_gas: int) -> dict:
     transaction = {
         'nonce': nonce,
         'to': dst_address,
         'value': w3.toWei(amount, 'ether'),
-        'data': '0x00',
+        'data': data,
         'gas': 160000,
         'maxFeePerGas': max_fee_per_gas,
         'maxPriorityFeePerGas': max_priority_fee_per_gas,
@@ -166,12 +149,12 @@ def get_tx_params(dst_address: str, amount: int, nonce: int,
 
     return transaction
 
-
-def assemble_tx(tx_params: dict, params: EthKmsParams, eth_checksum_addr: str, chainid: int) -> (bytes, bytes):
-    tx_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=tx_params)
+def assemble_tx(tx_params: dict, key_id: str, eth_checksum_addr: str, chainid: int) -> (bytes, bytes):
+    tx_unsigned = serializable_unsigned_transaction_from_dict(
+        transaction_dict=tx_params)
     tx_hash = tx_unsigned.hash()
 
-    tx_sig = find_eth_signature(params=params,
+    tx_sig = find_eth_signature(params=key_id,
                                 plaintext=tx_hash)
 
     tx_eth_recovered_pub_addr = get_recovery_id(msg_hash=tx_hash,

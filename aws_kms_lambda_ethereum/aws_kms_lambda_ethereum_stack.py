@@ -8,7 +8,6 @@ from aws_cdk import (core,
 
 
 class EthLambda(core.Construct):
-
     def __init__(self,
                  scope: core.Construct,
                  id: str,
@@ -27,7 +26,8 @@ class EthLambda(core.Construct):
         ]
 
         bundling_config = core.BundlingOptions(
-            image=bundling_docker_image, command=["bash", "-xe", "-c", " && ".join(commands)]
+            image=bundling_docker_image, command=[
+                "bash", "-xe", "-c", " && ".join(commands)]
         )
 
         code = aws_lambda.Code.from_asset(
@@ -59,17 +59,6 @@ class AwsKmsLambdaEthereumStack(core.Stack):
         cfn_cmk.key_spec = 'ECC_SECG_P256K1'
         cfn_cmk.key_usage = 'SIGN_VERIFY'
 
-        eth_client = EthLambda(self, "eth-kms-client",
-                               dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client",
-                               env={"LOG_LEVEL": "DEBUG",
-                                    "KMS_KEY_ID": cmk.key_id,
-                                    "ETH_NETWORK": eth_network
-                                    }
-                               )
-
-        cmk.grant(eth_client.lf, 'kms:GetPublicKey')
-        cmk.grant(eth_client.lf, 'kms:Sign')
-
         eth_client_eip1559 = EthLambda(self, "KmsClientEIP1559",
                                        dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client_eip1559",
                                        env={"LOG_LEVEL": "DEBUG",
@@ -80,6 +69,10 @@ class AwsKmsLambdaEthereumStack(core.Stack):
 
         cmk.grant(eth_client_eip1559.lf, 'kms:GetPublicKey')
         cmk.grant(eth_client_eip1559.lf, 'kms:Sign')
+        cmk.grant(eth_client_eip1559.lf, 'kms:TagResource')
+        cmk.grant(eth_client_eip1559.lf, 'kms:CreateKey')
+
+
 
         core.CfnOutput(self, 'KeyID', value=cmk.key_id,
                        description="KeyID of the KMS-CMK instance used as the Ethereum identity instance")
