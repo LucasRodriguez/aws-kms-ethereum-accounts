@@ -27,7 +27,6 @@ _logger.addHandler(handler)
 SECP256_K1_N = int(
     "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
 
-
 def get_kms_public_key(key_id: str) -> bytes:
     client = boto3.client('kms')
 
@@ -36,7 +35,6 @@ def get_kms_public_key(key_id: str) -> bytes:
     )
 
     return response['PublicKey']
-
 
 def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     client = boto3.client('kms')
@@ -49,6 +47,17 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     )
 
     return response
+
+
+def get_key() -> dict:
+    client = boto3.client('kms')
+
+    response = client.create_key(
+        KeyUsage='SIGN_VERIFY',
+        CustomerMasterKeySpec='ECC_SECG_P256K1'
+    )
+    res = response.get('KeyMetadata', {}).get('KeyId', None)
+    return res
 
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
@@ -81,7 +90,6 @@ def calc_eth_address(pub_key) -> str:
 
     return eth_checksum_addr
 
-
 def find_eth_signature(key_id: str, plaintext: bytes) -> dict:
     SIGNATURE_ASN = '''
     Signature DEFINITIONS ::= BEGIN
@@ -97,7 +105,8 @@ def find_eth_signature(key_id: str, plaintext: bytes) -> dict:
     signature = sign_kms(key_id, plaintext)
 
     # https://tools.ietf.org/html/rfc3279#section-2.2.3
-    signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
+    signature_decoded = signature_schema.decode(
+        'Ecdsa-Sig-Value', signature['Signature'])
     s = signature_decoded['s']
     r = signature_decoded['r']
 
@@ -108,7 +117,6 @@ def find_eth_signature(key_id: str, plaintext: bytes) -> dict:
 
     return {'r': r, 's': s}
 
-
 def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chainid) -> dict:
     # https://eips.ethereum.org/EIPS/eip-155
     # calculate v according to EIP155 based on chainid parameter
@@ -117,13 +125,13 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chainid) -> dict:
     v_range = [v_lower, v_lower + 1]
 
     for v in v_range:
-        recovered_addr = Account.recoverHash(message_hash=msg_hash, vrs=(v, r, s))
+        recovered_addr = Account.recoverHash(
+            message_hash=msg_hash, vrs=(v, r, s))
 
         if recovered_addr == eth_checksum_addr:
             return {"recovered_addr": recovered_addr, "y_parity": v - v_lower}
 
     return {}
-
 
 def get_tx_params(dst_address: str, amount: int, nonce: int, data: str,
                   chainid: int, type: int, max_fee_per_gas: int, max_priority_fee_per_gas: int) -> dict:
@@ -141,9 +149,9 @@ def get_tx_params(dst_address: str, amount: int, nonce: int, data: str,
 
     return transaction
 
-
 def assemble_tx(tx_params: dict, key_id: str, eth_checksum_addr: str, chainid: int) -> (bytes, bytes):
-    tx_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=tx_params)
+    tx_unsigned = serializable_unsigned_transaction_from_dict(
+        transaction_dict=tx_params)
     tx_hash = tx_unsigned.hash()
 
     tx_sig = find_eth_signature(params=key_id,

@@ -1,11 +1,11 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: MIT-0
-import os
+
 import logging
-import pdb
-from aws_kms_lambda_ethereum_stack import CreateKeys
+import os
 
 from lambda_helper import (assemble_tx,
+                           get_key,
                            get_tx_params,
                            calc_eth_address,
                            get_kms_public_key)
@@ -17,12 +17,14 @@ handler = logging.StreamHandler()
 _logger = logging.getLogger()
 _logger.setLevel(LOG_LEVEL)
 
+
 def lambda_handler(event, context):
+    _logger.debug("incoming event: {}".format(event))
     operation = event.get('operation')
 
     # {"operation": "status"}
     if operation == 'status':
-        key_id = event.get(key_id)
+        key_id = event.get('key_id')
 
         pub_key = get_kms_public_key(key_id)
         eth_checksum_address = calc_eth_address(pub_key)
@@ -86,8 +88,10 @@ def lambda_handler(event, context):
                 "signed_tx_payload": raw_tx_signed_payload}
 
     elif operation == 'assign':
-        pdb.set_trace()
-        key_id = CreateKeys(context, "key_Id")
+
+        key_id = get_key()
+
+        pub_key = get_kms_public_key(key_id)
 
         # calculate the Ethereum public address from public key
         eth_checksum_address = calc_eth_address(pub_key)

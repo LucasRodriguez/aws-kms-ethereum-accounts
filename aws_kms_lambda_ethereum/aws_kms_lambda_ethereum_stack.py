@@ -49,24 +49,30 @@ class EthLambda(core.Construct):
 
 
 class AwsKmsLambdaEthereumStack(core.Stack):
-    def __init__(self, scope: core.Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
 
-        EthLambda(self,
-                  id="KmsClientEIP1559",
-                  dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client_eip1559",
-                  env={"LOG_LEVEL": "DEBUG"}
-                  )
-
-
-class CreateKeys(core.Stack):
-    def __init__(self, scope: core.Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: core.Construct, construct_id: str, eth_network: str = 'rinkeby', **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         cmk = aws_kms.Key(self, "eth-cmk-identity",
                           removal_policy=core.RemovalPolicy.DESTROY)
         cfn_cmk = cmk.node.default_child
         cfn_cmk.key_spec = 'ECC_SECG_P256K1'
-        cfn_cmk.key_usage = 'SIGN_VERIFY'        
+        cfn_cmk.key_usage = 'SIGN_VERIFY'
 
-        return {'key_id': cmk.key_id}
+        eth_client_eip1559 = EthLambda(self, "KmsClientEIP1559",
+                                       dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client_eip1559",
+                                       env={"LOG_LEVEL": "DEBUG",
+                                            "KMS_KEY_ID": cmk.key_id,
+                                            "ETH_NETWORK": eth_network
+                                            }
+                                       )
+
+        cmk.grant(eth_client_eip1559.lf, 'kms:GetPublicKey')
+        cmk.grant(eth_client_eip1559.lf, 'kms:Sign')
+        cmk.grant(eth_client_eip1559.lf, 'kms:TagResource')
+        cmk.grant(eth_client_eip1559.lf, 'kms:CreateKey')
+
+
+
+        core.CfnOutput(self, 'KeyID', value=cmk.key_id,
+                       description="KeyID of the KMS-CMK instance used as the Ethereum identity instance")
